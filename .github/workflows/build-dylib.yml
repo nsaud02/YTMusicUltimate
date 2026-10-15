@@ -1,0 +1,67 @@
+name: Build Dylib and Resources
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v6
+        with:
+          path: main
+
+      - name: Install tools
+        run: brew install make ldid dpkg
+
+      - name: Set environment
+        run: |
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          echo "THEOS=${{ github.workspace }}/theos" >> "$GITHUB_ENV"
+
+      - name: Install Theos
+        uses: actions/checkout@v6
+        with:
+          repository: theos/theos
+          ref: 344ee5925df036dbd1312b783ad5a00d153c2445
+          path: theos
+          submodules: recursive
+
+      - name: Install iOS SDK
+        run: |
+          git clone --depth=1 --filter=blob:none --sparse https://github.com/theos/sdks.git
+          cd sdks
+          git sparse-checkout set iPhoneOS16.5.sdk
+          test -d iPhoneOS16.5.sdk
+          mkdir -p "$THEOS/sdks"
+          cp -R iPhoneOS16.5.sdk "$THEOS/sdks/"
+
+      - name: Build for sideloading
+        working-directory: main
+        run: make clean package DEBUG=0 FINALPACKAGE=1 SIDELOADING=1
+
+      - name: Extract dylib and resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          package=$(find main/packages -name '*.deb' -type f | head -n 1)
+          test -n "$package"
+          dpkg-deb -x "$package" extracted
+          mkdir -p output
+          cp extracted/Library/MobileSubstrate/DynamicLibraries/YTMusicUltimate.dylib output/
+          cp -R "extracted/Library/Application Support/YTMusicUltimate.bundle" output/
+          cp "$package" output/
+          test -s output/YTMusicUltimate.dylib
+          test -f output/YTMusicUltimate.bundle/en.lproj/Localizable.strings
+
+      - name: Upload build
+        uses: actions/upload-artifact@v7
+        with:
+          name: YTMusicUltimate-Sideloading
+          path: output/
+          if-no-files-found: error
