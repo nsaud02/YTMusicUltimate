@@ -16,6 +16,14 @@ jobs:
         with:
           path: main
 
+      - name: Apply Kd Music update
+        working-directory: main
+        run: |
+          set -euo pipefail
+          test -f kd-music-update.zip
+          unzip -o kd-music-update.zip
+          test -f "layout/Library/Application Support/YTMusicUltimate.bundle/icons/kd-logo.jpeg"
+
       - name: Install tools
         run: brew install make ldid dpkg
 
@@ -56,12 +64,15 @@ jobs:
           cp extracted/Library/MobileSubstrate/DynamicLibraries/YTMusicUltimate.dylib output/
           cp -R "extracted/Library/Application Support/YTMusicUltimate.bundle" output/
           cp "$package" output/
+          cp main/LICENSE output/
+          cp main/KD-MUSIC-NOTES.md output/
           test -s output/YTMusicUltimate.dylib
-          test -f output/YTMusicUltimate.bundle/en.lproj/Localizable.strings
+          test -f output/YTMusicUltimate.bundle/ar.lproj/Localizable.strings
+          test -f output/YTMusicUltimate.bundle/icons/kd-logo.jpeg
 
       - name: Upload build
         uses: actions/upload-artifact@v7
         with:
-          name: YTMusicUltimate-Sideloading
+          name: Kd-Music-Sideloading
           path: output/
           if-no-files-found: error
